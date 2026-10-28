@@ -1,0 +1,34 @@
+# Push a tag like v1.0.0 to publish a release. The zip contains the built interface,
+# so people who download it only need Node.js; the installer skips the build step.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node scripts/smoke-test.mjs
+      - name: Package
+        run: |
+          name="kompass-${GITHUB_REF_NAME#v}"
+          mkdir -p "out/$name/web"
+          cp -r server launcher scripts install.mjs install.cmd uninstall.cmd install.sh package.json LICENSE README.md README.de.md "out/$name/"
+          cp -r web/dist "out/$name/web/"
+          (cd out && zip -qr "../$name.zip" "$name")
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: kompass-*.zip
+          generate_release_notes: true
